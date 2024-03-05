@@ -1,17 +1,19 @@
 all:
+  # Ansible connection settings.
+  vars:
+    # Explicitly set the connection type to the node servers.
+    ansible_connection: ssh
+
+    # Explicitly set using root user, to not require sudo configuration.
+    # You can comment out this to use a regular user for connecting.
+#    ansible_user: root
   hosts:
     lan-master-01.lan:
       ansible_host: 10.11.12.171
-      ip: 10.11.12.171
-      access_ip: 10.11.12.171
     lan-worker-01.lan:
       ansible_host: 10.11.12.121
-      ip: 10.11.12.121
-      access_ip: 10.11.12.121
     lan-worker-02.lan:
       ansible_host: 10.11.12.117
-      ip: 10.11.12.117
-      access_ip: 10.11.12.117
   children:
     kube_control_plane:
       hosts:
@@ -30,5 +32,3 @@ all:
       children:
         kube_control_plane:
         kube_node:
-    calico_rr:
-      hosts: {}

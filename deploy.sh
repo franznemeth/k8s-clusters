@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Switching to the script directory.
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -8,4 +8,4 @@ cd $SCRIPT_DIR
 #ansible-playbook -i ./inventory ./playbooks/hosts-custom-configuration.yaml
 
 # Deploying Kubernetes to nodes.
-cd kubespray && ansible-playbook -i ../inventory ./cluster.yml
+cd kubespray && ansible-playbook -i ../inventory ./cluster.yml -b --private-key ~/.ssh/id_ed25519

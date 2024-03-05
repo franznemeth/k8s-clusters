@@ -1,0 +1,76 @@
+---
+containerd_oom_score: 0
+
+containerd_default_runtime: "runc"
+containerd_snapshotter: "native"
+
+containerd_runc_runtime:
+  name: runc
+  type: "io.containerd.runc.v2"
+  engine: ""
+  root: ""
+
+containerd_debug_level: "info"
+
+## Container runtime
+## docker for docker, crio for cri-o and containerd for containerd.
+## Additionally you can set this to kubeadm if you want to install etcd using kubeadm
+## Kubeadm etcd deployment is experimental and only available for new deployments
+## If this is not set, container manager will be inherited from the Kubespray defaults
+## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
+## Also this makes possible to use different container manager for etcd nodes.
+container_manager: containerd
+
+## Settings for etcd deployment type
+# Set this to docker if you are using container_manager: docker
+etcd_deployment_type: kubeadm
+
+## Local loadbalancer should use this port
+## And must be set port 6443
+loadbalancer_apiserver_port: 6443
+
+## If loadbalancer_apiserver_healthcheck_port variable defined, enables proxy liveness check for nginx.
+loadbalancer_apiserver_healthcheck_port: 8081
+
+## Variables for webhook token auth https://kubernetes.io/docs/reference/access-authn-authz/authentication/#webhook-token-authentication
+kube_webhook_token_auth: false
+kube_webhook_token_auth_url_skip_tls_verify: false
+# kube_webhook_token_auth_url: https://...
+## base64-encoded string of the webhook's CA certificate
+# kube_webhook_token_auth_ca_data: "LS0t..."
+
+## NTP Settings
+# Start the ntpd or chrony service and enable it at system boot.
+ntp_enabled: true
+ntp_manage_config: true
+ntp_servers:
+  - "0.pool.ntp.org iburst"
+  - "1.pool.ntp.org iburst"
+  - "2.pool.ntp.org iburst"
+  - "3.pool.ntp.org iburst"
+
+## Used to control no_log attribute
+unsafe_show_logs: false
+
+## If enabled it will allow kubespray to attempt setup even if the distribution is not supported. For unsupported distributions this can lead to unexpected failures in some cases.
+allow_unsupported_distribution_setup: false
+
+kube_proxy_remove: true
+
+# Metrics Server deployment
+metrics_server_enabled: true
+# metrics_server_container_port: 10250
+# metrics_server_kubelet_insecure_tls: true
+# metrics_server_metric_resolution: 15s
+# metrics_server_kubelet_preferred_address_types: "InternalIP,ExternalIP,Hostname"
+# metrics_server_host_network: false
+# metrics_server_replicas: 1
+
+# Rancher Local Path Provisioner
+local_path_provisioner_enabled: true
+local_path_provisioner_namespace: "kube-system"
+local_path_provisioner_storage_class: "local-path"
+local_path_provisioner_reclaim_policy: Retain
+local_path_provisioner_claim_root: /opt/local-path-provisioner/
+local_path_provisioner_image_repo: "rancher/local-path-provisioner"
+local_path_provisioner_image_tag: "v0.0.24"
