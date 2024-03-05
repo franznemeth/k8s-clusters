@@ -1,51 +1,129 @@
 ---
-# custom_cni network plugin configuration
-# There are two deployment options to choose from, select one
+## Cilium deployed from official public Helm chart
+custom_cni_chart_namespace: kube-system
+custom_cni_chart_release_name: cilium
+custom_cni_chart_repository_name: cilium
+custom_cni_chart_repository_url: https://helm.cilium.io
+custom_cni_chart_ref: cilium/cilium
+custom_cni_chart_version: 1.15.0
+custom_cni_chart_values:
+  # -- Roll out cilium agent pods automatically when configmap is updated.
+  rollOutCiliumPods: true
 
-## OPTION 1 - Static manifest files
-## With this option, referred manifest file will be deployed
-## as if the `kubectl apply -f` method was used with it.
-#
-## List of Kubernetes resource manifest files
-## See tests/files/custom_cni/README.md for example
-# custom_cni_manifests: []
+  # -- Annotate k8s node upon initialization with Cilium's metadata.
+  annotateK8sNode: true
 
-## OPTION 1 EXAMPLE - Cilium static manifests in Kubespray tree
-# custom_cni_manifests:
-#   - "{{ playbook_dir }}/../tests/files/custom_cni/cilium.yaml"
+  # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
+  # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
+  # Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
+  bandwidthManager:
+    # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
+    enabled: true
 
-## OPTION 2 - Helm chart application
-## This allows the CNI backend to be deployed to Kubespray cluster
-## as common Helm application.
-#
-## Helm release name - how the local instance of deployed chart will be named
-# custom_cni_chart_release_name: ""
-#
-## Kubernetes namespace to deploy into
-# custom_cni_chart_namespace: "kube-system"
-#
-## Helm repository name - how the local record of Helm repository will be named
-# custom_cni_chart_repository_name: ""
-#
-## Helm repository URL
-# custom_cni_chart_repository_url: ""
-#
-## Helm chart reference - path to the chart in the repository
-# custom_cni_chart_ref: ""
-#
-## Helm chart version
-# custom_cni_chart_version: ""
-#
-## Custom Helm values to be used for deployment
-# custom_cni_chart_values: {}
+  # -- Configure L2 announcements
+  l2announcements:
+    # -- Enable L2 announcements
+    enabled: false
+    # -- If a lease is not renewed for X duration, the current leader is considered dead, a new leader is picked
+    # leaseDuration: 15s
+    # -- The interval at which the leader will renew the lease
+    # leaseRenewDeadline: 5s
+    # -- The timeout between retries if renewal fails
+    # leaseRetryPeriod: 2s
 
-## OPTION 2 EXAMPLE - Cilium deployed from official public Helm chart
-# custom_cni_chart_namespace: kube-system
-# custom_cni_chart_release_name: cilium
-# custom_cni_chart_repository_name: cilium
-# custom_cni_chart_repository_url: https://helm.cilium.io
-# custom_cni_chart_ref: cilium/cilium
-# custom_cni_chart_version: 1.14.3
-# custom_cni_chart_values:
-#   cluster:
-#     name: "cilium-demo"
+  # -- Configure L2 pod announcements
+  l2podAnnouncements:
+    # -- Enable L2 pod announcements
+    enabled: false
+    # -- Interface used for sending Gratuitous ARP pod announcements
+    interface: "eth0"
+
+  cni:
+    # -- Install the CNI configuration and binary files into the filesystem.
+    install: true
+
+  ingressController:
+    # -- Enable cilium ingress controller
+    # This will automatically set enable-envoy-config as well.
+    enabled: false
+
+    # -- Default ingress load balancer mode
+    # Supported values: shared, dedicated
+    # For granular control, use the following annotations on the ingress resource
+    # ingress.cilium.io/loadbalancer-mode: shared|dedicated,
+    loadbalancerMode: dedicated
+
+  # -- Enable endpoint status.
+  # Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
+  endpointStatus:
+    enabled: true
+    status: "health controllers"
+
+    # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
+    # hostNamespaceOnly: false
+
+  hubble:
+    # -- Enable Hubble (true by default).
+    enabled: true
+
+    relay:
+      # -- Enable Hubble Relay (requires hubble.enabled=true)
+      enabled: true
+
+    ui:
+      # -- Whether to enable the Hubble UI.
+      enabled: true
+
+      # -- Roll out Hubble-ui pods automatically when configmap is updated.
+      rollOutPods: true
+
+      # -- hubble-ui ingress configuration.
+      ingress:
+        enabled: true
+        annotations: {}
+          # kubernetes.io/ingress.class: nginx
+        # kubernetes.io/tls-acme: "true"
+        className: "internal"
+        hosts:
+          - cilium.int.fnemeth.net
+        tls:
+          - secretName: cilium-tls
+            hosts:
+              - cilium.int.fnemeth.net
+
+  # -- Configure the kube-proxy replacement in Cilium BPF datapath
+  # Valid options are "true", "false", "disabled" (deprecated), "partial" (deprecated), "strict" (deprecated).
+  # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
+  kubeProxyReplacement: "true"
+
+  # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
+  # cluster.
+  egressGateway:
+    enabled: false
+    # -- Install egress gateway IP rules and routes in order to properly steer
+    # egress gateway traffic to the correct ENI interface
+    installRoutes: false
+
+  operator:
+    # -- Enable the cilium-operator component (required).
+    enabled: true
+
+    # -- Roll out cilium-operator pods automatically when configmap is updated.
+    rollOutPods: true
+
+    # -- Number of replicas to run for the cilium-operator deployment
+    replicas: 1
+
+    # -- Node labels for cilium-operator pod assignment
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+    nodeSelector:
+      kubernetes.io/os: linux
+      node-role.kubernetes.io/master: "true"
+
+  nodeinit:
+    # -- Enable the node initialization DaemonSet
+    enabled: true
+
+  preflight:
+    # -- Enable Cilium pre-flight resources (required for upgrade)
+    enabled: false

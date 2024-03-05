@@ -1,17 +1,4 @@
 ---
-containerd_oom_score: 0
-
-containerd_default_runtime: "runc"
-containerd_snapshotter: "native"
-
-containerd_runc_runtime:
-  name: runc
-  type: "io.containerd.runc.v2"
-  engine: ""
-  root: ""
-
-containerd_debug_level: "info"
-
 ## Container runtime
 ## docker for docker, crio for cri-o and containerd for containerd.
 ## Additionally you can set this to kubeadm if you want to install etcd using kubeadm
@@ -50,7 +37,7 @@ ntp_servers:
   - "3.pool.ntp.org iburst"
 
 ## Used to control no_log attribute
-unsafe_show_logs: false
+unsafe_show_logs: true
 
 ## If enabled it will allow kubespray to attempt setup even if the distribution is not supported. For unsupported distributions this can lead to unexpected failures in some cases.
 allow_unsupported_distribution_setup: false
@@ -65,12 +52,3 @@ metrics_server_enabled: true
 # metrics_server_kubelet_preferred_address_types: "InternalIP,ExternalIP,Hostname"
 # metrics_server_host_network: false
 # metrics_server_replicas: 1
-
-# Rancher Local Path Provisioner
-local_path_provisioner_enabled: true
-local_path_provisioner_namespace: "kube-system"
-local_path_provisioner_storage_class: "local-path"
-local_path_provisioner_reclaim_policy: Retain
-local_path_provisioner_claim_root: /opt/local-path-provisioner/
-local_path_provisioner_image_repo: "rancher/local-path-provisioner"
-local_path_provisioner_image_tag: "v0.0.24"
