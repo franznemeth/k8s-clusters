@@ -1,0 +1,34 @@
+all:
+  hosts:
+    lan-master-01.lan:
+      ansible_host: 10.11.12.171
+      ip: 10.11.12.171
+      access_ip: 10.11.12.171
+    lan-worker-01.lan:
+      ansible_host: 10.11.12.121
+      ip: 10.11.12.121
+      access_ip: 10.11.12.121
+    lan-worker-02.lan:
+      ansible_host: 10.11.12.117
+      ip: 10.11.12.117
+      access_ip: 10.11.12.117
+  children:
+    kube_control_plane:
+      hosts:
+        lan-master-01.lan:
+        lan-worker-01.lan:
+        lan-worker-02.lan:
+    kube_node:
+      hosts:
+        lan-master-01.lan:
+        lan-worker-01.lan:
+        lan-worker-02.lan:
+    etcd:
+      hosts:
+        lan-master-01.lan:
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+    calico_rr:
+      hosts: {}
