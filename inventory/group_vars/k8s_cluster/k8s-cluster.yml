@@ -8,14 +8,6 @@ kube_config_dir: /etc/kubernetes
 kube_script_dir: "{{ bin_dir }}/kubernetes-scripts"
 kube_manifest_dir: "{{ kube_config_dir }}/manifests"
 
-# This is where all the cert scripts and certs will be located
-kube_cert_dir: "{{ kube_config_dir }}/ssl"
-
-# This is where all of the bearer tokens will be stored
-kube_token_dir: "{{ kube_config_dir }}/tokens"
-
-kube_api_anonymous_auth: false
-
 ## Change this to use another Kubernetes version, e.g. a current beta release
 kube_version: v1.29.2
 
@@ -38,10 +30,6 @@ kube_log_level: 2
 # Directory where credentials will be stored
 credentials_dir: "{{ inventory_dir }}/credentials"
 
-## It is possible to activate / deactivate selected authentication methods (oidc, static token auth)
-# kube_oidc_auth: false
-# kube_token_auth: false
-
 # Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
 # Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
 kube_network_plugin: cni
@@ -54,30 +42,11 @@ kube_service_addresses: 10.43.0.0/16
 # This network must be unused in your network infrastructure!
 kube_pods_subnet: 10.42.0.0/16
 
-# internal network node size allocation (optional). This is the size allocated
-# to each node for pod IP address allocation. Note that the number of pods per node is
-# also limited by the kubelet_max_pods variable which defaults to 110.
-#
-# Example:
-# Up to 64 nodes and up to 254 or kubelet_max_pods (the lowest of the two) pods per node:
-#  - kube_pods_subnet: 10.233.64.0/18
-#  - kube_network_node_prefix: 24
-#  - kubelet_max_pods: 110
-#
-# Example:
-# Up to 128 nodes and up to 126 or kubelet_max_pods (the lowest of the two) pods per node:
-#  - kube_pods_subnet: 10.233.64.0/18
-#  - kube_network_node_prefix: 25
-#  - kubelet_max_pods: 110
-kube_network_node_prefix: 24
-
-# Configure Dual Stack networking (i.e. both IPv4 and IPv6)
-enable_dual_stack_networks: false
-
 # The port the API Server will be listening on.
 kube_apiserver_ip: "{{ kube_service_addresses | ansible.utils.ipaddr('net') | ansible.utils.ipaddr(1) | ansible.utils.ipaddr('address') }}"
 kube_apiserver_port: 6443  # (https)
-## kube-apiserver
+kube_api_anonymous_auth: false
+
 authorization_modes: ['Node', 'RBAC']
 kube_apiserver_request_timeout: 120s
 kube_apiserver_service_account_lookup: true
@@ -105,7 +74,6 @@ kube_apiserver_admission_event_rate_limits:
     qps: 50
     burst: 100
 kube_profiling: false
-
 kubelet_authorization_mode_webhook: true
 kubelet_authentication_token_webhook: true
 kube_read_only_port: 0
@@ -153,7 +121,7 @@ dns_mode: coredns
 # Set manual server if using a custom cluster DNS server
 # manual_dns_server: 10.x.x.x
 # Enable nodelocal dns cache
-enable_nodelocaldns: true
+enable_nodelocaldns: false
 nodelocaldns_ip: 169.254.25.10
 nodelocaldns_health_port: 9254
 nodelocaldns_second_health_port: 9256
