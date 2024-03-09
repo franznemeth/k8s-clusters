@@ -18,8 +18,6 @@ all:
     kube_control_plane:
       hosts:
         lan-master-01.lan:
-        lan-worker-01.lan:
-        lan-worker-02.lan:
     kube_node:
       hosts:
         lan-master-01.lan:
