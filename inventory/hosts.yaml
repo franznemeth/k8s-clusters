@@ -20,7 +20,6 @@ all:
         lan-master-01.lan:
     kube_node:
       hosts:
-        lan-master-01.lan:
         lan-worker-01.lan:
         lan-worker-02.lan:
     etcd:
