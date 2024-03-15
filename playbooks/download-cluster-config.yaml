@@ -4,7 +4,7 @@
     # A source file, stores access configuration to the cluster.
     cluster_config_file: /etc/kubernetes/admin.conf
     # A temporary file to prepare the configuration file for access externally.
-    cluster_config_file_copy: /root/.kube/config_to_export
+    cluster_config_file_copy: ./config_to_export
     # A local path where the file will be stored on the local machine.
     local_cluster_file: ../cluster-access.yaml
 
