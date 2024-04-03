@@ -28,7 +28,7 @@ all:
 #        lan-worker-02.lan:
     etcd:
       hosts:
-        lan-master-01.lan:
+        ceres.lan:
     k8s_cluster:
       children:
         kube_control_plane:
