@@ -12,95 +12,45 @@ container_manager: containerd
 # Set this to docker if you are using container_manager: docker
 etcd_deployment_type: kubeadm
 
-# Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
-# Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
-kube_network_plugin: cilium
+# Cilium helm installation
+kube_network_plugin: custom_cni
+# This must be set to root otherwise cilium agent init fails with permission denied while copying to /opt/cni/bin
+cni_bin_owner: root
+custom_cni_chart_namespace: kube-system
+custom_cni_chart_release_name: cilium
+custom_cni_chart_repository_name: cilium
+custom_cni_chart_repository_url: https://helm.cilium.io
+custom_cni_chart_ref: cilium/cilium
+custom_cni_chart_version: 1.15.2
+custom_cni_chart_values:
+  dnsPolicy: "ClusterFirstWithHostNet"
+  bandwidthManager:
+    enabled: true
+  cni:
+    install: true
+  identityAllocationMode: "crd"
+  hubble:
+    enabled: false
+  kubeProxyReplacement: "true"
+  operator:
+    replicas: 1
+    nodeSelector:
+      kubernetes.io/os: linux
+      node-role.kubernetes.io/control-plane: ""
+  rollOutCiliumPods: true
+  annotateK8sNode: true
+#  k8sServiceHost: "10.43.0.1"
+  k8sServiceHost: "10.11.12.171"
+  k8sServicePort: "6443"
+  nodeinit:
+    enabled: true
+  ipam:
+    mode: "kubernetes"
+    operator:
+      clusterPoolIPv4PodCIDRList: ["{{ kube_pods_subnet }}"]
 
-cilium_version: "v1.15.2"
-
-# Identity allocation mode selects how identities are shared between cilium
-# nodes by setting how they are stored. The options are "crd" or "kvstore".
-# - "crd" stores identities in kubernetes as CRDs (custom resource definition).
-#   These can be queried with:
-#     `kubectl get ciliumid`
-# - "kvstore" stores identities in an etcd kvstore.
-# - In order to support External Workloads, "crd" is required
-#   - Ref: https://docs.cilium.io/en/stable/gettingstarted/external-workloads/#setting-up-support-for-external-workloads-beta
-# - KVStore operations are only required when cilium-operator is running with any of the below options:
-#   - --synchronize-k8s-services
-#   - --synchronize-k8s-nodes
-#   - --identity-allocation-mode=kvstore
-#   - Ref: https://docs.cilium.io/en/stable/internals/cilium_operator/#kvstore-operations
-cilium_identity_allocation_mode: kvstore
-
-# Overlay Network Mode
-# cilium_tunnel_mode: vxlan
-# Optional features
-# cilium_enable_prometheus: false
-# Enable if you want to make use of hostPort mappings
-# cilium_enable_portmap: false
-# Monitor aggregation level (none/low/medium/maximum)
-# cilium_monitor_aggregation: medium
-# The monitor aggregation flags determine which TCP flags which, upon the
-# first observation, cause monitor notifications to be generated.
-#
-# Only effective when monitor aggregation is set to "medium" or higher.
-# cilium_monitor_aggregation_flags: "all"
-# Kube Proxy Replacement mode (strict/partial)
-cilium_kube_proxy_replacement: strict
-
-# Hubble
-### Enable Hubble without install
-# cilium_enable_hubble: false
-### Enable Hubble Metrics
-# cilium_enable_hubble_metrics: false
-### if cilium_enable_hubble_metrics: true
-# cilium_hubble_metrics: {}
-# - dns
-# - drop
-# - tcp
-# - flow
-# - icmp
-# - http
-### Enable Hubble install
-# cilium_hubble_install: false
-### Enable auto generate certs if cilium_hubble_install: true
-# cilium_hubble_tls_generate: false
-cilium_operator_replicas: 1
-
-# Make Cilium take ownership over the `/etc/cni/net.d` directory on the node, renaming all non-Cilium CNI configurations to `*.cilium_bak`.
-# This ensures no Pods can be scheduled using other CNI plugins during Cilium agent downtime.
-# Available for Cilium v1.10 and up.
-cilium_cni_exclusive: true
-
-#kube_network_plugin: custom_cni
-#custom_cni_chart_namespace: kube-system
-#custom_cni_chart_release_name: cilium
-#custom_cni_chart_repository_name: cilium
-#custom_cni_chart_repository_url: https://helm.cilium.io
-#custom_cni_chart_ref: cilium/cilium
-#custom_cni_chart_version: 1.15.2
-#custom_cni_chart_values:
-##  bandwidthManager:
-##    # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
-##    enabled: true
-##  cni:
-##    # -- Install the CNI configuration and binary files into the filesystem.
-##    install: true
-##  hubble:
-##    # -- Enable Hubble (true by default).
-##    enabled: false
-#  kubeProxyReplacement: "true"
-#  operator:
-#    replicas: 1
-#    nodeSelector:
-#      kubernetes.io/os: linux
-#      node-role.kubernetes.io/control-plane: ""
-##  nodeinit:
-##    enabled: true
-#
-## Remove kube-proxy to be replaced by cilium
-#kube_proxy_remove: true
+# Remove kube-proxy to be replaced by cilium
+kube_proxy_remove: true
 
 ## NTP Settings
 # Start the ntpd or chrony service and enable it at system boot.
@@ -170,16 +120,11 @@ kubelet_streaming_connection_idle_timeout: "5m"
 kubelet_make_iptables_util_chains: true
 kubelet_feature_gates: ["RotateKubeletServerCertificate=true"]
 kubelet_seccomp_default: true
-kubelet_systemd_hardening: false
 
 # create a default Pod Security Configuration and deny running of insecure pods
 # kube_system namespace is exempted by default
 kube_pod_security_use_default: true
 kube_pod_security_default_enforce: restricted
-
-# configure arp_ignore and arp_announce to avoid answering ARP queries from kube-ipvs0 interface
-# must be set to true for MetalLB, kube-vip(ARP enabled) to work
-#kube_proxy_strict_arp: true
 
 ## Encrypting Secret Data at Rest
 kube_encrypt_secret_data: true

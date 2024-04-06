@@ -12,8 +12,8 @@ all:
       ansible_host: 10.11.12.171
     deimos.lan:
       ansible_host: 10.11.12.48
-    lan-worker-01.lan:
-      ansible_host: 10.11.12.121
+#    pallas.lan:
+#      ansible_host: 10.11.12.121
 #    lan-worker-02.lan:
 #      ansible_host: 10.11.12.117
   children:
@@ -23,7 +23,7 @@ all:
     kube_node:
       hosts:
         ceres.lan:
-        lan-worker-01.lan:
+#        pallas.lan:
         deimos.lan:
 #        lan-worker-02.lan:
     etcd:
