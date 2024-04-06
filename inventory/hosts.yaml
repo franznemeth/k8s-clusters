@@ -12,6 +12,8 @@ all:
       ansible_host: 10.11.12.171
     deimos.lan:
       ansible_host: 10.11.12.48
+    nas.lan:
+      ansible_host: 10.11.12.16
 #    pallas.lan:
 #      ansible_host: 10.11.12.121
 #    lan-worker-02.lan:
@@ -25,6 +27,7 @@ all:
         ceres.lan:
 #        pallas.lan:
         deimos.lan:
+        nas.lan:
 #        lan-worker-02.lan:
     etcd:
       hosts:
