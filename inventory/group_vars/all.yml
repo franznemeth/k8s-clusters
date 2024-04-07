@@ -95,7 +95,6 @@ kube_apiserver_enable_admission_plugins:
   - MutatingAdmissionWebhook
   - ValidatingAdmissionWebhook
   - PodNodeSelector
-  - PodSecurity
 kube_apiserver_admission_control_config_file: true
 kube_apiserver_admission_event_rate_limits:
   limit_1:
@@ -120,14 +119,6 @@ kubelet_streaming_connection_idle_timeout: "5m"
 kubelet_make_iptables_util_chains: true
 kubelet_feature_gates: ["RotateKubeletServerCertificate=true"]
 kubelet_seccomp_default: true
-
-# create a default Pod Security Configuration and deny running of insecure pods
-# kube_system namespace is exempted by default
-kube_pod_security_use_default: true
-kube_pod_security_default_enforce: baseline
-kube_pod_security_exemptions_namespaces:
-  - kube-system
-  - metallb-system
 
 ## Encrypting Secret Data at Rest
 kube_encrypt_secret_data: true
