@@ -38,13 +38,7 @@ custom_cni_chart_values:
   # -- Configure L2 announcements
   l2announcements:
     # -- Enable L2 announcements
-    enabled: false
-    # -- If a lease is not renewed for X duration, the current leader is considered dead, a new leader is picked
-    # leaseDuration: 15s
-    # -- The interval at which the leader will renew the lease
-    # leaseRenewDeadline: 5s
-    # -- The timeout between retries if renewal fails
-    # leaseRetryPeriod: 2s
+    enabled: true
 
   # -- Configure L2 pod announcements
   l2podAnnouncements:
@@ -52,6 +46,10 @@ custom_cni_chart_values:
     enabled: false
     # -- Interface used for sending Gratuitous ARP pod announcements
     interface: "eth0"
+
+  externalIPs:
+    # -- Enable ExternalIPs service support.
+    enabled: true
 
   cni:
     # -- Install the CNI configuration and binary files into the filesystem.
@@ -74,9 +72,9 @@ custom_cni_chart_values:
       # -- Service name
       name: cilium-ingress
       # -- Labels to be added for the shared LB service
-      labels: { }
+      labels: {}
       # -- Annotations to be added for the shared LB service
-      annotations: { }
+      annotations: {}
       # -- Service type for the shared LB service
       type: LoadBalancer
       # -- Configure a specific nodePort for insecure HTTP traffic on the shared LB service
@@ -214,7 +212,7 @@ kubelet_protect_kernel_defaults: true
 kubelet_rotate_certificates: true
 kubelet_streaming_connection_idle_timeout: "5m"
 kubelet_make_iptables_util_chains: true
-kubelet_feature_gates: ["RotateKubeletServerCertificate=true"]
+kubelet_feature_gates: ["RotateKubeletServerCertificate=true", "ValidatingAdmissionPolicy=true"]
 kubelet_seccomp_default: true
 
 ## Encrypting Secret Data at Rest
