@@ -194,13 +194,13 @@ kube_apiserver_admission_control_config_file: true
 kube_apiserver_admission_event_rate_limits:
   limit_1:
     type: Namespace
-    qps: 50
-    burst: 100
+    qps: 150
+    burst: 300
     cache_size: 2000
   limit_2:
     type: User
-    qps: 50
-    burst: 100
+    qps: 150
+    burst: 300
 kube_profiling: false
 kubelet_authorization_mode_webhook: true
 kubelet_authentication_token_webhook: true
