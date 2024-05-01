@@ -12,6 +12,8 @@ container_manager: containerd
 # Set this to docker if you are using container_manager: docker
 etcd_deployment_type: kubeadm
 
+etcd_quota_backend_bytes: "8589934592"
+
 # Cilium helm installation
 kube_network_plugin: custom_cni
 # This must be set to root otherwise cilium agent init fails with permission denied while copying to /opt/cni/bin
