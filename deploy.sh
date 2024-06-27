@@ -8,4 +8,4 @@ cd $SCRIPT_DIR
 #ansible-playbook -i ./inventory ./playbooks/hosts-custom-configuration.yaml
 
 # Deploying Kubernetes to nodes.
-cd kubespray && ansible-playbook -i ../inventory ./$1 -b --private-key ~/.ssh/id_ed25519
+cd kubespray && ansible-playbook -i ../inventory ./$1 -b --private-key ~/.ssh/id_ed25519 -vvv
