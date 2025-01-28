@@ -6,20 +6,27 @@ all:
       ansible_host: 10.11.12.171
     deimos.lan:
       ansible_host: 10.11.12.48
+    pallas.lan:
+      ansible_host: 10.11.12.156
     nas.lan:
       ansible_host: 10.11.12.16
   children:
     kube_control_plane:
       hosts:
         ceres.lan:
+        #deimos.lan:
+        #pallas.lan:
     kube_node:
       hosts:
         ceres.lan:
         deimos.lan:
+        pallas.lan:
         nas.lan:
     etcd:
       hosts:
         ceres.lan:
+        #deimos.lan:
+        #pallas.lan:
     k8s_cluster:
       children:
         kube_control_plane:

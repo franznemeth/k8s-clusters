@@ -1,0 +1,131 @@
+---
+## Container runtime
+## docker for docker, crio for cri-o and containerd for containerd.
+## Additionally you can set this to kubeadm if you want to install etcd using kubeadm
+## Kubeadm etcd deployment is experimental and only available for new deployments
+## If this is not set, container manager will be inherited from the Kubespray defaults
+## and not from k8s_cluster/k8s-cluster.yml, which might not be what you want.
+## Also this makes possible to use different container manager for etcd nodes.
+container_manager: containerd
+
+## Settings for etcd deployment type
+# Set this to docker if you are using container_manager: docker
+etcd_deployment_type: kubeadm
+
+etcd_quota_backend_bytes: "4294967296"
+
+# Cilium helm installation
+kube_network_plugin: custom_cni
+# This must be set to root otherwise cilium agent init fails with permission denied while copying to /opt/cni/bin
+cni_bin_owner: root
+## OPTION 1 EXAMPLE - Cilium static manifests in Kubespray tree
+custom_cni_manifests:
+  - "{{ playbook_dir }}/../../manifests/cilium_core.yaml"
+
+# Remove kube-proxy to be replaced by cilium
+kube_proxy_remove: true
+
+## NTP Settings
+# Start the ntpd or chrony service and enable it at system boot.
+ntp_enabled: true
+ntp_manage_config: true
+ntp_servers:
+  - "0.pool.ntp.org iburst"
+  - "1.pool.ntp.org iburst"
+  - "2.pool.ntp.org iburst"
+  - "3.pool.ntp.org iburst"
+
+## Used to control no_log attribute
+unsafe_show_logs: true
+
+# Metrics Server deployment
+metrics_server_enabled: true
+
+kube_version: v1.30.4
+
+# Random shifts for retrying failed ops like pushing/downloading
+retry_stagger: 5
+
+# Cluster Loglevel configuration
+kube_log_level: 2
+
+# Kubernetes internal network for services, unused block of space.
+kube_service_addresses: 10.43.0.0/16
+kube_pods_subnet: 10.42.0.0/16
+
+#kube_api_anonymous_auth: false
+authorization_modes: ['Node', 'RBAC']
+kube_apiserver_request_timeout: 120s
+kube_apiserver_service_account_lookup: true
+kube_apiserver_enable_admission_plugins:
+  - EventRateLimit
+  - AlwaysPullImages
+  - ServiceAccount
+  - NamespaceLifecycle
+  - NodeRestriction
+  - LimitRanger
+  - ResourceQuota
+  - MutatingAdmissionWebhook
+  - ValidatingAdmissionWebhook
+  - PodNodeSelector
+kube_apiserver_admission_control_config_file: true
+kube_apiserver_admission_event_rate_limits:
+  limit_1:
+    type: Namespace
+    qps: 150
+    burst: 300
+    cache_size: 2000
+  limit_2:
+    type: User
+    qps: 150
+    burst: 300
+kube_profiling: false
+kubelet_authorization_mode_webhook: true
+kubelet_authentication_token_webhook: true
+kube_read_only_port: 0
+kubelet_rotate_server_certificates: true
+kubelet_protect_kernel_defaults: true
+#kubelet_event_record_qps: 1
+#kubelet_event_record_qps: 50
+kubelet_rotate_certificates: true
+kubelet_streaming_connection_idle_timeout: "5m"
+kubelet_make_iptables_util_chains: true
+kubelet_feature_gates: ["RotateKubeletServerCertificate=true", "ValidatingAdmissionPolicy=true"]
+kubelet_seccomp_default: true
+
+## Encrypting Secret Data at Rest
+kube_encrypt_secret_data: true
+kube_encryption_resources: [secrets]
+kube_encryption_algorithm: "secretbox"
+
+# DNS configuration.
+# Subdomains of DNS domain to be resolved via /etc/resolv.conf for hostnet pods
+ndots: 1
+
+# audit log for kubernetes
+kubernetes_audit: false
+
+# Make a copy of kubeconfig on the host that runs Ansible in {{ inventory_dir }}/artifacts
+kubeconfig_localhost: true
+
+## Support tls min version, Possible values: VersionTLS10, VersionTLS11, VersionTLS12, VersionTLS13.
+tls_min_version: "VersionTLS13"
+
+## Support tls cipher suites.
+tls_cipher_suites:
+  - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+  - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+  - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+
+## Amount of time to retain events. (default 1h0m0s)
+event_ttl_duration: "4h0m0s"
+
+## Automatically renew K8S control plane certificates on first Monday of each month
+auto_renew_certificates: true
+# First Monday of each month
+auto_renew_certificates_systemd_calendar: "Mon *-*-1,2,3,4,5,6,7 03:{{ groups['kube_control_plane'].index(inventory_hostname) }}0:00"
+
+# do not drain nodes on upgrades
+drain_nodes: false
