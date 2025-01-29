@@ -256,3 +256,5 @@ auto_renew_certificates_systemd_calendar: "Mon *-*-1,2,3,4,5,6,7 03:{{ groups['k
 
 # do not drain nodes on upgrades
 drain_nodes: false
+
+enable_nodelocaldns: false
