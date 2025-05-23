@@ -41,7 +41,7 @@ unsafe_show_logs: true
 # Metrics Server deployment
 metrics_server_enabled: true
 
-kube_version: v1.31.7
+kube_version: 1.32.5
 
 # Random shifts for retrying failed ops like pushing/downloading
 retry_stagger: 5
@@ -90,7 +90,7 @@ kubelet_protect_kernel_defaults: true
 kubelet_rotate_certificates: true
 kubelet_streaming_connection_idle_timeout: "5m"
 kubelet_make_iptables_util_chains: true
-kubelet_feature_gates: ["RotateKubeletServerCertificate=true", "ValidatingAdmissionPolicy=true"]
+kubelet_feature_gates: ["RotateKubeletServerCertificate=true"]
 kubelet_seccomp_default: true
 
 ## Encrypting Secret Data at Rest
