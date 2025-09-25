@@ -1,1 +1,3 @@
 ./cluster-access.yaml
+**/artifacts/*
+**/credentials/*
