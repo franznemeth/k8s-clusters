@@ -41,7 +41,7 @@ unsafe_show_logs: true
 # Metrics Server deployment
 metrics_server_enabled: true
 
-kube_version: 1.33.6
+kube_version: 1.34.1
 
 # Random shifts for retrying failed ops like pushing/downloading
 retry_stagger: 5
