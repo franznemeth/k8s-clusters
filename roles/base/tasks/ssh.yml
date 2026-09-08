@@ -1,0 +1,21 @@
+---
+- name: Set SSH Key
+  authorized_key:
+    user: franz.nemeth
+    state: present
+    key: '{{ item }}'
+  with_file:
+    - authorized_keys
+- name: Add franz.nemeth to group sudo
+  user:
+    name: franz.nemeth
+    groups:
+      - wheel
+    append: yes
+- name: Enable passwordless sudo
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^%wheel'
+    line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'

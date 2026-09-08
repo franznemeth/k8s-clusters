@@ -1,0 +1,10 @@
+---
+# Galaxy roles used by roles/base. Installed into roles/ by init.sh
+# (`ansible-galaxy install -r requirements.yml -p roles/`) and gitignored there.
+# Collections (community.general, ansible.posix, ...) ship with the `ansible`
+# package pinned in Pipfile, so none are listed here.
+roles:
+  - name: gantsign.oh-my-zsh
+  - name: linux-system-roles.cockpit
+
+collections: []

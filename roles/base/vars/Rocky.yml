@@ -1,0 +1,7 @@
+base_packages:
+  - vim
+  - git
+  - zsh
+  - htop
+  - dnf-utils
+  - dkms

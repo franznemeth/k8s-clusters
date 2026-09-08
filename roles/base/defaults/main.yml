@@ -1,0 +1,9 @@
+---
+# defaults file for base
+raspberry_pi: false
+
+# Opt-in switches for disruptive tasks. Left off so `./deploy.sh <inv> site.yml`
+# is safe to run against the live cluster. Enable deliberately, per node, in a
+# maintenance window.
+base_full_upgrade: false      # `dnf upgrade "*"` + reboot-if-needed
+base_manage_firewalld: false  # stop & mask firewalld

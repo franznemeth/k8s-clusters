@@ -1,0 +1,37 @@
+---
+# Host configuration for the lan / core cluster nodes, ported from the
+# ansible-lan repo. Run via the repo-root deploy.sh so roles_path / ansible.cfg
+# resolve:
+#
+#   ./deploy.sh inventory      site.yml     # lan  nodes (base on all, nas on nas.lan)
+#   ./deploy.sh inventory-core site.yml     # core node (base + Vault auto-unseal)
+#
+# Disruptive base tasks (full `dnf upgrade`, reboot, firewalld masking) are
+# opt-in -- see roles/base/defaults/main.yml. Add `-e base_full_upgrade=true`
+# and `--limit <node>` for a maintenance-window run.
+#
+# The `nas` and `vault` groups only exist in one inventory each; the other run
+# just skips that play (host_pattern_mismatch = ignore in ansible.cfg).
+
+- name: Common host configuration
+  hosts: all
+  become: true
+  roles:
+    - base
+
+- name: NAS host configuration (ZFS, Samba, restic, zfs-exporter)
+  hosts: nas
+  become: true
+  roles:
+    - nas
+
+# include_role (not a static `roles:` entry) so the vault-encrypted
+# roles/core/vars/main.yml is only read when a host actually matches -- a lan
+# `site.yml` run never needs the vault password.
+- name: Vault auto-unseal timer
+  hosts: vault
+  become: true
+  tasks:
+    - name: Apply core role
+      ansible.builtin.include_role:
+        name: core

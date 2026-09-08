@@ -1,0 +1,10 @@
+---
+# handlers file for base
+- name: restart_systemd-sysctl
+  service:
+    name: systemd-sysctl
+    state: restarted
+
+- name: reboot
+  reboot:
+    msg: "reboot initiated by ansible"

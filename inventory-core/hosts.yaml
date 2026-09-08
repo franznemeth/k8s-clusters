@@ -18,3 +18,8 @@ all:
       children:
         kube_control_plane:
         kube_node:
+    # Consumed by playbooks/site.yml (host configuration), not by Kubespray.
+    # Runs the `core` role: the Vault auto-unseal systemd timer.
+    vault:
+      hosts:
+        core.lan:

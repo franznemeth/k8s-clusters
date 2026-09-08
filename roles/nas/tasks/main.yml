@@ -1,0 +1,29 @@
+---
+# tasks file for nas
+- name: install restic
+  dnf:
+    name: restic
+    state: present
+
+# Deploy backup scripts
+- include_tasks: backup_scripts.yml
+  loop:
+    - k8s_restic_backup
+
+# install zfs (https://openzfs.github.io/openzfs-docs/Getting%20Started/RHEL-based%20distro/index.html)
+- include_tasks: zfs.yml
+
+# Install samba and apply SELinux context to shares
+- name: install samba
+  dnf:
+    name: samba
+    state: present
+- name: apply SELinuxs context to shares
+  community.general.sefcontext:
+    target: "/mnt/{{ item }}(/.*)?"
+    setype: samba_share_t
+    state: present
+  loop:
+    - Storage
+    - temp
+  notify: Apply new SELinux file context to filesystem

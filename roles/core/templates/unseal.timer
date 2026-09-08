@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Unseal timer
+
+[Timer]
+OnCalendar=*:0,15,30,45
+Persistent=false
+
+[Install]
+WantedBy=default.target

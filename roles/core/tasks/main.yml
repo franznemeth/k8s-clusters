@@ -1,0 +1,99 @@
+---
+
+- name: set up unseal-vault
+  include_tasks: unseal-vault.yml
+
+# tasks file for core
+# TODO: Check if helm is there in the first place
+# curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+#- name: Download helm binary arm64
+#  get_url:
+#    url: https://get.helm.sh/helm-v3.12.0-linux-arm64.tar.gz
+##    checksum: sha256:https://github.com/helm/helm/releases/download/v3.12.0/helm-v3.12.0-linux-arm64.tar.gz.sha256sum.asc
+#    dest: /tmp/helm.tar.gz
+#    owner: root
+#    group: root
+#    mode: 0655
+#  when:
+#    - ( ansible_facts.architecture is search("arm") and
+#      ansible_facts.userspace_bits == "64" ) or
+#      ansible_facts.architecture is search("aarch64")
+#
+#- name: unpack helm archive
+#  ansible.builtin.unarchive:
+#    src: /tmp/helm.tar.gz
+#    dest: /usr/local/bin
+#    remote_src: yes
+#
+#- name: move helm bin
+#  ansible.builtin.copy:
+#    src: /usr/local/bin/linux-arm64/helm
+#    dest: /usr/local/bin/helm
+#    mode: 0755
+#    remote_src: yes
+#
+#- name: deploy github_deploy_key ssh key
+#  ansible.builtin.copy:
+#    content: "{{ github_deploy_key }}"
+#    dest: /root/.ssh/github_deploy_key
+#    mode: 0400
+#    owner: root
+#
+#- name: check out k8s-deployments repo
+#  ansible.builtin.git:
+#    repo: git@github.com:franznemeth/k8s-deployments.git
+#    dest: /root/k8s-deployments
+#    update: yes
+#    key_file: /root/.ssh/github_deploy_key
+#
+#- name: check if helm chart is installed in core cluster
+#  ansible.builtin.command:
+#    cmd: helm list -A --no-headers --kubeconfig=/etc/rancher/k3s/k3s.yaml | grep argocd
+#  register: helm_list
+#  check_mode: no
+#  failed_when: helm_list.rc == 2
+#
+#- name: add helm repos
+#  ansible.builtin.command:
+#    cmd: "{{ item }}"
+#  loop:
+#    - helm repo add cilium https://helm.cilium.io/
+#    - helm repo add argo https://argoproj.github.io/argo-helm
+#
+#- name: install cilium dependency charts
+#  ansible.builtin.command:
+#    cmd: helm dependency build
+#  args:
+#    chdir: /root/k8s-deployments/deployments/core/cilium/
+#  when: helm_list.rc == 1
+#
+## this has to be applied using helm template & kubectl since the node is in notReady state at this point and helm does not finish cleanly
+#- name: install cilium chart to cluster
+#  ansible.builtin.shell:
+#    cmd: "helm template . -n kube-system | kubectl apply -f -"
+#    chdir: /root/k8s-deployments/deployments/core/cilium/
+#  when: helm_list.rc == 1
+#
+#- name: create argocd namespace
+#  ansible.builtin.shell:
+#    cmd: "kubectl create ns argocd"
+#  when: helm_list.rc == 1
+#
+#- name: install argocd chart to cluster
+#  ansible.builtin.shell:
+#    cmd: "helm dependency build && helm template argocd . -n argocd --create-namespace | kubectl apply -f -"
+#    chdir: /root/k8s-deployments/deployments/core/argocd/
+#  when: helm_list.rc == 1
+#  register: argo_install
+#
+#- name: debug
+#  ansible.builtin.debug:
+#    var: argo_install
+#    verbosity: 2
+#
+#- name: install argocd-config from git to cluster
+#  ansible.builtin.shell:
+#    cmd: "helm --kubeconfig=/etc/rancher/k3s/k3s.yaml install argocd-config . -n argocd"
+#    chdir: /root/k8s-deployments/deployments/core/argocd-config/
+#  when: helm_list.rc == 1
+#

@@ -1,0 +1,48 @@
+---
+- name: isntall zfs rpm key
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://raw.githubusercontent.com/zfsonlinux/zfsonlinux.github.com/master/zfs-release/RPM-GPG-KEY-openzfs-key2
+- name: install zfs repo
+  ansible.builtin.dnf:
+    name: https://zfsonlinux.org/epel/zfs-release-2-3.el9.noarch.rpm
+    state: present
+- name: install kernel-devel
+  ansible.builtin.dnf:
+    name: kernel-devel
+    state: present
+- name: install zfs
+  ansible.builtin.dnf:
+    name: zfs
+    state: present
+- name: Check if zfs_exporter is present
+  ansible.builtin.stat:
+    path: /usr/local/bin/zfs_exporter-2.3.1.linux-amd64
+  register: zfs_exporter_path
+- name: Download zfs_exporter tar file
+  ansible.builtin.unarchive:
+    src: https://github.com/pdf/zfs_exporter/releases/download/v2.3.1/zfs_exporter-2.3.1.linux-amd64.tar.gz
+    remote_src: yes
+    dest: /usr/local/bin/
+    owner: root
+    group: root
+    mode: 0755
+    exclude:
+      - CHANGELOG.md
+      - LICENSE
+  when: zfs_exporter_path.stat.exists == False
+- name: install zfs_exporter systemd service
+  copy:
+    src: zfs-exporter.service
+    dest: "/etc/systemd/system/zfs-exporter.service"
+    mode: 0644
+  notify: daemon-reload
+- name: set /etc/sysconfig/zfs_exporter environment file
+  ansible.builtin.copy:
+    dest: /etc/sysconfig/zfs_exporter
+    content: 'OPTIONS="{{ zfs_exporter_options }}"'
+#  when: zfs_exporter_options | length > 0
+- name: enable zfs_exporter service
+  systemd:
+    state: started
+    name: "zfs-exporter.service"

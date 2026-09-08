@@ -1,0 +1,22 @@
+---
+- name: "deploy unseal-vault.sh script"
+  copy:
+    src: "unseal-vault.sh"
+    dest: "/usr/local/bin/unseal-vault.sh"
+    mode: 0755
+- name: "copy timer oneshot service unseal"
+  template:
+    src: "unseal.service"
+    dest: "/etc/systemd/system/unseal.service"
+    mode: 0644
+  notify: daemon-reload
+- name: "copy unseal timer"
+  template:
+    src: "unseal.timer"
+    dest: "/etc/systemd/system/unseal.timer"
+    mode: 0644
+  notify: daemon-reload
+- name: "Start unseal timer"
+  systemd:
+    state: started
+    name: "unseal.timer"

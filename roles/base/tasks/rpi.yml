@@ -1,0 +1,145 @@
+---
+- name: test if partition needs to be grown
+  command: lsblk -f | grep mmcblk0 && growpart --dry-run /dev/mmcblk0 3
+  changed_when: growpart_possible.rc == 0
+  failed_when: growpart_possible.rc == 2
+  check_mode: no
+  register: growpart_possible
+
+- name: expand partition
+  command: growpart /dev/mmcblk0 3
+  changed_when: False
+  check_mode: no
+  when: growpart_possible.rc == 0
+
+- name: pvresize
+  command: pvresize /dev/mmcblk0p3
+  when: growpart_possible.rc == 0
+
+- name: lvresize
+  command: lvresize -l +100%FREE /dev/mapper/fedora-root
+  when: growpart_possible.rc == 0
+
+- name: xfs_growfs
+  command: xfs_growfs -d /
+  when: growpart_possible.rc == 0
+
+- name: set config.txt to boot without hdmi
+  ansible.builtin.lineinfile:
+    path: /boot/efi/config.txt
+    line: hdmi_force_hotplug=1
+  when: ansible_distribution in ['Fedora']
+
+# Prerequisites for k8s
+# From: https://github.com/k3s-io/k3s-ansible/blob/master/roles/prereq/tasks/main.yml
+- name: Set SELinux to disabled state
+  selinux:
+    state: disabled
+  when: ansible_distribution in ['Fedora', 'Rocky']
+
+- name: Enable IPv4 forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: yes
+
+# https://docs.cilium.io/en/stable/operations/system_requirements/
+- name: create sysctl file required by cilium
+  copy:
+    src: 99-override_cilium_rp_filter.conf
+    dest: /etc/sysctl.d/99-override_cilium_rp_filter.conf
+  notify: restart_systemd-sysctl
+
+# disable ipv6
+- name: set net.ipv6.conf.default.disable_ipv6=1
+  sysctl:
+    name: net.ipv6.conf.default.disable_ipv6
+    value: '1'
+    state: present
+    reload: yes
+
+- name: set net.ipv6.conf.all.disable_ipv6=1
+  sysctl:
+    name: net.ipv6.conf.all.disable_ipv6
+    value: '1'
+    state: present
+    reload: yes
+
+- name: stop firewalld
+  systemd:
+    name: firewalld
+    state: stopped
+    masked: yes
+
+- name: enable nftables
+  systemd:
+    name: nftables
+    state: started
+    enabled: yes
+
+- name: Add br_netfilter to /etc/modules-load.d/
+  copy:
+    content: "br_netfilter"
+    dest: /etc/modules-load.d/br_netfilter.conf
+    mode: "u=rw,g=,o="
+  when: ansible_distribution in ['Fedora', 'Rocky']
+
+- name: Load br_netfilter
+  modprobe:
+    name: br_netfilter
+    state: present
+  when: ansible_distribution in ['Fedora', 'Rocky']
+
+- name: Set bridge-nf-call-iptables (just to be sure)
+  sysctl:
+    name: "{{ item }}"
+    value: "1"
+    state: present
+    reload: yes
+  when: ansible_distribution in ['Fedora', 'Rocky']
+  loop:
+    - net.bridge.bridge-nf-call-iptables
+    - net.bridge.bridge-nf-call-ip6tables
+
+- name: Add /usr/local/bin to sudo secure_path
+  lineinfile:
+    line: 'Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin'
+    regexp: "Defaults(\\s)*secure_path(\\s)*="
+    state: present
+    insertafter: EOF
+    path: /etc/sudoers
+    validate: 'visudo -cf %s'
+  when: ansible_distribution in ['Fedora', 'Rocky']
+
+#- name: Enable cgroup via boot commandline if not already enabled for Centos
+#  lineinfile:
+#    path: /boot/cmdline.txt
+#    backrefs: yes
+#    regexp: '^((?!.*\bcgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory\b).*)$'
+#    line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+#  notify: reboot
+#  when: raspberry_pi == true and ansible_distribution in ['Rocky']
+#
+#- name: Enable cgroup via boot commandline if not already enabled for Centos
+#  lineinfile:
+#    path: /boot/efi/cmdline.txt
+#    backrefs: yes
+#    regexp: '^((?!.*\bcgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory\b).*)$'
+#    line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+#  notify: reboot
+#  when: raspberry_pi == true and ansible_distribution in ['Fedora']
+
+- name: Disable chronyd since it makes fedora system upgrade fail
+  ansible.builtin.systemd_service:
+    state: stopped
+    enabled: false
+    name: chronyd
+  when: raspberry_pi == true and ansible_distribution in ['Fedora']
+
+- name: Enable systemd-timesyncd instead of chronyd
+  ansible.builtin.systemd_service:
+    state: stopped
+    enabled: false
+    name: chronyd
+  when: raspberry_pi == true and ansible_distribution in ['Fedora']

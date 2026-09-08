@@ -1,0 +1,10 @@
+---
+# handlers file for nas
+- name: daemon-reload
+  systemd:
+    daemon_reload: true
+- name: Apply new SELinux file context to filesystem
+  ansible.builtin.shell: restorecon -irv /srv/{{ item }}
+  with_items:
+    - Storage
+    - temp

@@ -1,0 +1,3 @@
+---
+# vars file for nas
+zfs_exporter_options: ""

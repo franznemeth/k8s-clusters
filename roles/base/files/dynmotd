@@ -1,0 +1,53 @@
+#!/bin/bash
+
+ROOT=$(df -Ph -l -x overlay|  grep "% /$" | awk '{print $4}' | tr -d '\n')
+HOME=$(df -Ph | grep home | awk '{print $4}' | tr -d '\n')
+
+MEMORY1=$(free -t -m | grep "Mem:" | awk -F ' ' '{print $4" MB"}')
+MEMORY2=$(free -t -m | grep "Mem" | awk '{print $2" MB";}')
+PSA=$(ps -Afl | wc -l)
+PSZ=$(ps axo pid=,stat= | awk '$2~/^Z/ { print }')
+
+#System uptime
+uptime=$(cat /proc/uptime | cut -f1 -d.)
+upDays=$((uptime/60/60/24))
+upHours=$((uptime/60/60%24))
+upMins=$((uptime/60%60))
+upSecs=$((uptime%60))
+
+#System load
+LOAD1=$(cat /proc/loadavg | awk {'print $1'})
+LOAD5=$(cat /proc/loadavg | awk {'print $2'})
+LOAD15=$(cat /proc/loadavg | awk {'print $3'})
+
+# OS Facts
+. /etc/os-release
+
+echo -en "
+\e[34m================================================================================\e[39m
+ - Hostname............: \e[91m$HOSTNAME\e[39m
+ - Release.............: \e[91m${PRETTY_NAME}\e[39m
+ - Users...............: \e[91mCurrently $(users | wc -w) user(s) logged on\e[39m
+\e[34m================================================================================\e[39m"
+echo -en "
+ - Current user........: \e[36m$USER\e[39m
+ - CPU usage...........: \e[33m$LOAD1, $LOAD5, $LOAD15 (1, 5, 15 min)\e[39m
+ - Memory used.........: \e[33m$MEMORY1 / $MEMORY2\e[39m
+ - Swap in use.........: \e[33m$(free -m | tail -n 1 | awk '{print $3}') MB\e[39m"
+if [ -z "$PSZ" ]; then
+  echo -en "
+ - Processes...........: \e[33m$PSA running\e[39m"
+else
+   echo -en "
+ - Processes...........: \e[33m$PSA running $PSZ Zombies!\e[39m"
+fi
+echo -en "
+ - System uptime.......: \e[33m$upDays days $upHours hours $upMins minutes $upSecs seconds\e[39m
+ - Disk space ROOT.....: \e[33m$ROOT remaining\e[39m"
+if [ -n "$HOME" ]; then
+  echo -en "
+ - Disk space HOME.....: \e[33m$HOME remaining\e[39m"
+fi
+echo -en "
+\e[34m================================================================================\e[39m
+"

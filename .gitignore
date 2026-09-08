@@ -1,3 +1,15 @@
-./cluster-access.yaml
+# Anchored so git actually matches it (the old "./cluster-access.yaml" did not).
+/cluster-access.yaml
 **/artifacts/*
 **/credentials/*
+
+# Galaxy roles pulled in by requirements.yml / init.sh
+/roles/gantsign.oh-my-zsh
+/roles/linux-system-roles.cockpit
+
+# local / editor cruft
+venv/
+.venv/
+.idea/
+*.iml
+.DS_Store

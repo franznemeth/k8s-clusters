@@ -1,0 +1,117 @@
+---
+# tasks file for base
+- name: Print all available facts
+  ansible.builtin.debug:
+    var: ansible_os_family
+# Gather additional facts
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+
+- name: set distro-specific variables
+  include_vars: '{{ item }}'
+  with_first_found:
+    - '{{ ansible_os_family }}.yml'
+    - default.yml
+
+- name: Test for raspberry pi /proc/cpuinfo
+  command: grep -E "Raspberry Pi|BCM2708|BCM2709|BCM2835|BCM2836" /proc/cpuinfo
+  register: grep_cpuinfo_raspberrypi
+  failed_when: false
+  changed_when: false
+
+- name: Test for raspberry pi /proc/device-tree/model
+  command: grep -E "Raspberry Pi" /proc/device-tree/model
+  register: grep_device_tree_model_raspberrypi
+  failed_when: false
+  changed_when: false
+
+- name: Set raspberry_pi fact to true
+  set_fact:
+    raspberry_pi: true
+  when:
+    grep_cpuinfo_raspberrypi.rc == 0 or grep_device_tree_model_raspberrypi.rc == 0
+
+- name: Install EPEL 9 GPG key
+  rpm_key:
+    state: present
+    key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9
+  when: ansible_os_family in ['RedHat']
+- name: Install EPEL 9
+  dnf:
+    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+    state: present
+  when:  ansible_os_family in ['RedHat']
+
+- name: Install common packages
+  package:
+    name: "{{ base_packages }}"
+    state: present
+
+- include_tasks: ssh.yml
+
+- name: zsh for all nodes
+  include_role:
+    name: gantsign.oh-my-zsh
+  vars:
+    users:
+      - username: "franz.nemeth"
+        oh_my_zsh:
+          theme: bira
+
+- name: Install cockpit with Cockpit web server certificate
+  include_role:
+    name: linux-system-roles.cockpit
+  vars:
+    cockpit_port: 9090
+  when: ansible_distribution == "Fedora"
+
+- include_tasks: rpi.yml
+  when: ansible_distribution in ['Fedora', 'Rocky'] and raspberry_pi == True
+
+- include_tasks: time.yml
+
+# Full package upgrade + conditional reboot.
+# Opt-in only: these nodes run Ceph mons/OSDs and etcd, so an uncoordinated
+# reboot mid-run can take the cluster below quorum. Enable per node, in a
+# maintenance window, with `-e base_full_upgrade=true` (and drive it serially,
+# e.g. `--limit <node> -e ansible_serial=1`).
+- name: Full upgrade and reboot if necessary
+  when: base_full_upgrade | bool
+  block:
+    - name: upgrade all packages
+      dnf:
+        name: "*"
+        state: latest
+
+    - name: Check if node needs reboot
+      command:
+        cmd: "dnf needs-restarting -r"
+      changed_when: False
+      register: reboot_required
+      failed_when: reboot_required.rc | default('') == 2
+
+    - name: Reboot required
+      reboot:
+        post_reboot_delay: 60
+      when: reboot_required.rc | default('') == 1
+
+# /etc/profile -> last line /usr/local/bin/dynmotd
+- name: Copy dynmotd script
+  copy:
+    src: dynmotd
+    dest: /usr/local/bin/dynmotd
+    mode: 0775
+- name: Call dynmotd in /etc/profile
+  lineinfile:
+    path: /etc/profile
+    line: /usr/local/bin/dynmotd
+
+# Kubespray manages the firewall itself; masking it here is opt-in so a
+# host-config run does not silently change the firewall state of a live node.
+- name: stop & mask firewalld
+  when: base_manage_firewalld | bool
+  systemd:
+    name: firewalld
+    state: stopped
+    masked: yes

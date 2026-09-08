@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+[Unit]
+Description={{ item }} Backup on %H
+Documentation=https://restic.readthedocs.io/en/latest/
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/bin/{{ item }}.sh

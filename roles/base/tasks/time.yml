@@ -1,0 +1,21 @@
+---
+# Set correct timezone
+- name: Set timezone to Europe/Vienna
+  timezone:
+    name: Europe/Vienna
+
+- name: Run timedatectl status
+  command: /usr/bin/timedatectl status
+  changed_when: False
+  check_mode: no
+  register: timedatectl_result
+
+- name: Set Timezone to to Europe/Vienna
+  become: yes
+  command: '/usr/bin/timedatectl set-timezone Europe/Vienna'
+  when: "'Time zone: Europe/Vienna' not in timedatectl_result.stdout"
+
+- name: Enable NTP
+  become: yes
+  command: timedatectl set-ntp true
+  when: "'NTP service: inactive' in timedatectl_result.stdout"

@@ -1,0 +1,10 @@
+[Unit]
+Description=ZFS Exporter
+
+[Service]
+User=root
+EnvironmentFile=/etc/sysconfig/zfs_exporter
+ExecStart=/usr/local/bin/zfs_exporter-2.3.1.linux-amd64/zfs_exporter $OPTIONS
+
+[Install]
+WantedBy=multi-user.target

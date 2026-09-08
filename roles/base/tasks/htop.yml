@@ -1,0 +1,15 @@
+---
+# tasks file for htop
+- name: Install htop
+  package:
+    name: htop
+    state: present
+
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+
+- name: get installed htop version
+  ansible.builtin.debug:
+    msg: "{{ ansible_facts.packages['htop'] | length }} versions of foobar are installed!"
+  when: "'foobar' in ansible_facts.packages"

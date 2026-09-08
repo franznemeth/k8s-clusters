@@ -31,3 +31,7 @@ all:
       children:
         kube_control_plane:
         kube_node:
+    # Consumed by playbooks/site.yml (host configuration), not by Kubespray.
+    nas:
+      hosts:
+        nas.lan:

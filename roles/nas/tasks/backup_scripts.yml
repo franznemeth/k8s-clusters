@@ -1,0 +1,23 @@
+- name: "deploy backup script {{ item }}"
+  copy:
+    src: "{{ item }}.sh"
+    dest: "/usr/local/bin/{{ item }}.sh"
+    mode: 0755
+- name: "copy backup oneshot service {{ item }}"
+  template:
+    src: "backup.service"
+    dest: "/etc/systemd/system/{{ item }}.service"
+    mode: 0644
+  notify: daemon-reload
+# TODO: Make timer customizable, convert loop items to dict
+#       https://www.tutorialworks.com/ansible-template-loop/
+- name: "copy backup timer {{ item }}"
+  template:
+    src: "backup.timer"
+    dest: "/etc/systemd/system/{{ item }}.timer"
+    mode: 0644
+  notify: daemon-reload
+- name: "Make sure the backup timer is running {{ item }}"
+  systemd:
+    state: started
+    name: "{{ item }}.timer"
