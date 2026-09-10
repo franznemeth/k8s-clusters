@@ -1,0 +1,55 @@
+---
+# Exclude Ceph RBD (krbd) and rbd-nbd devices from LVM scanning.
+#
+# When the Rook/Ceph cluster loses OSD quorum, every mapped /dev/rbd* device
+# blocks on I/O and its kernel jbd2/<dev> thread wedges in D-state. Any LVM
+# command that enumerates all block devices then hangs indefinitely:
+#   * `pvscan --cache` from lvm2-pvscan units at boot / udev settle
+#   * `vgs` / `lvs` from monitoring and host-side ceph-volume
+# A global_filter that rejects rbd/nbd keeps the host LVM stack responsive while
+# Ceph is degraded so a node can boot and its OSD start cleanly.
+#
+# CephFS needs nothing here: it is a kernel network mount (mount.ceph), not a
+# block device, so LVM never looks at it.
+#
+# Scope: this hardens *host* LVM only. The `lvs` inside the Rook OSD "activate"
+# init container reads the lvm.conf baked into the ceph image (Rook mounts only
+# /dev, /etc/ceph, /run/udev), so it is unaffected.
+#
+# The filter ends with "a|.*|" so every other device (incl. the root VG) stays
+# visible. rbd/nbd are never in the boot path -> no initramfs rebuild needed.
+
+- name: lvm-filter | stat lvm.conf
+  ansible.builtin.stat:
+    path: /etc/lvm/lvm.conf
+  register: _lvm_conf
+
+- name: lvm-filter | configure global_filter
+  when: _lvm_conf.stat.exists
+  block:
+    - name: lvm-filter | back up lvm.conf once
+      ansible.builtin.copy:
+        src: /etc/lvm/lvm.conf
+        dest: /etc/lvm/lvm.conf.orig
+        remote_src: true
+        force: false
+        mode: preserve
+
+    - name: lvm-filter | set devices/global_filter to reject rbd and nbd
+      ansible.builtin.lineinfile:
+        path: /etc/lvm/lvm.conf
+        # Match only an active (uncommented) setting; leave the stock
+        # "# global_filter = ..." example comment alone.
+        regexp: '^(\s*)global_filter\s*='
+        line: "\tglobal_filter = {{ base_lvm_global_filter }}"
+        insertafter: '^devices\s*\{'
+        backrefs: false
+      register: _lvm_filter
+      notify: refresh lvm cache
+
+    - name: lvm-filter | verify LVM still parses and the filter took effect
+      ansible.builtin.command:
+        cmd: lvmconfig devices/global_filter
+      changed_when: false
+      register: _lvm_filter_now
+      failed_when: _lvm_filter_now.rc != 0 or '/dev/rbd' not in _lvm_filter_now.stdout

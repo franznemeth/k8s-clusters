@@ -1,0 +1,17 @@
+---
+# Apply only the LVM global_filter task from roles/base -- a targeted run
+# without the rest of the base role. See roles/base/tasks/lvm-filter.yml for
+# the full rationale. A normal `site.yml` run already includes this.
+#
+#   ./deploy.sh inventory      lvm-filter-rbd.yaml
+#   ./deploy.sh inventory-core lvm-filter-rbd.yaml
+#   ./deploy.sh inventory      lvm-filter-rbd.yaml --check --limit deimos.lan
+
+- name: Exclude Ceph RBD/NBD devices from host LVM scanning
+  hosts: all
+  become: true
+  tasks:
+    - name: Apply base LVM filter task
+      ansible.builtin.import_role:
+        name: base
+        tasks_from: lvm-filter.yml

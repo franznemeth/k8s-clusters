@@ -7,3 +7,7 @@ raspberry_pi: false
 # maintenance window.
 base_full_upgrade: false      # `dnf upgrade "*"` + reboot-if-needed
 base_manage_firewalld: false  # stop & mask firewalld
+
+# LVM global_filter applied by tasks/lvm-filter.yml. First match wins; the
+# trailing accept keeps every non-Ceph device visible.
+base_lvm_global_filter: '[ "r|^/dev/rbd.*|", "r|^/dev/nbd.*|", "a|.*|" ]'

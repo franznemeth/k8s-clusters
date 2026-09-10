@@ -71,6 +71,8 @@
 
 - include_tasks: time.yml
 
+- include_tasks: lvm-filter.yml
+
 # Full package upgrade + conditional reboot.
 # Opt-in only: these nodes run Ceph mons/OSDs and etcd, so an uncoordinated
 # reboot mid-run can take the cluster below quorum. Enable per node, in a
