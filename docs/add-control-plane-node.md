@@ -1,155 +1,177 @@
-# Promoting worker nodes to control plane (lan cluster: 1 → 3)
+# Promote `deimos.lan` + `pallas.lan` to control plane + etcd (lan: 1 → 3)
 
-Goal: make `deimos.lan` and `pallas.lan` control-plane + etcd members alongside
-`ceres.lan`, so a single node/apiserver/etcd hiccup no longer takes the whole
-cluster down (this is the trigger behind the recurring Rook OSD deadlock — see
-the memory note / `k8s-deployments` incident history).
+Goal: `ceres.lan` + `deimos.lan` + `pallas.lan` all run the API server and an
+etcd member, so a single node/apiserver/etcd hiccup no longer drops every
+controller's watches at once (the trigger behind the recurring Rook OSD
+restart). `nas.lan` stays a plain worker.
 
-The inventory change on this branch (`feat/promote-control-plane`) is only the
-end state. **Do not merge and run `cluster.yml` casually** — `deimos.lan` and
-`pallas.lan` are already `kube_node` members and both run a Ceph mon + OSD, so
-they must be added **one at a time** with Ceph health checks between them.
+This is a rollout **procedure**, not one playbook run. `inventory/hosts.yaml`
+keeps `deimos`/`pallas` commented out of `kube_control_plane` and `etcd`; you
+uncomment one node at a time as you reach its pass, so a stray full `cluster.yml`
+never tries to promote an un-reset worker.
 
-## Constraints
+## Why it's the low-risk direction
 
-- **Odd etcd count.** Going 1 → 3 transits through 2 members. During that window,
-  losing either of the two live members = etcd quorum loss = API down. Keep it
-  short and do not reboot anything else meanwhile.
-- **First entry is fixed.** `ceres.lan` must stay first in `kube_control_plane`
-  and `etcd`. Kubespray cannot change the first entry.
-- **etcd is kubeadm-managed** (`etcd_deployment_type: kubeadm`) and co-located
-  with the API server on each control-plane node.
-- **etcd shares disks with Ceph OSDs.** etcd is fsync-heavy; OSD I/O spikes will
-  raise etcd fsync latency. If possible, first move etcd to its own device by
-  setting `etcd_data_dir` (group_vars) to a path on a separate disk. Otherwise
-  expect the two to compete.
-- No API VIP — each node runs a local `nginx-proxy` static pod that load-balances
-  to the `kube_control_plane` list. It must be restarted on every node after the
-  membership changes.
+- `ceres.lan` is never touched: still first in both groups, still the founding
+  etcd member. No etcd data migration, no `cluster-info` surgery, no reorder.
+- Purely additive: `kubeadm join --control-plane` for one node at a time. A
+  failed join is undone with `remove-node.yml`; the working cluster is untouched.
 
-## Pre-flight
+## What still needs care
+
+- **etcd 1 → 2 → 3.** While the count is even (2), losing either live member =
+  quorum loss = API down (workloads keep running). Keep each pass short.
+- **`deimos`/`pallas` are already `kube_node` members.** kubeadm can't promote a
+  joined worker in place, so each is reset with `remove-node.yml` and rejoined.
+  The reset drains the node → its Ceph mon + OSD go down for the reset + rejoin.
+  **One node at a time**, `ceph -s` back to `HEALTH_OK` between them (2 of 3 OSDs
+  stay up throughout). OSD data is on the dedicated SSD and is not wiped.
+- **No control-plane taint.** `ceres.lan` has no taints today and runs Rook pods;
+  the promoted nodes match that, so nothing is taint-evicted.
+- **No VIP needed.** Every node's local `nginx-proxy` load-balances across the
+  `kube_control_plane` list with automatic failover.
+- `auto_renew_certificates_systemd_calendar` in `group_vars/all.yml` keys off the
+  `kube_control_plane` group size — adapts to 3 nodes, no change.
+
+All commands run from the repo root. `deploy.sh` adds `-b --private-key
+~/.ssh/id_ed25519`; for Kubespray playbooks it `cd`s into `kubespray/`.
+
+## 0. Prerequisite: LVM filter on every node
+
+So a briefly-dropped OSD during the resets can't wedge on the `lvs` deadlock.
 
 ```sh
-# Cluster + Ceph healthy, all PGs active+clean
-kubectl get nodes
-kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s     # HEALTH_OK
+./deploy.sh inventory lvm-filter-rbd.yaml
+```
 
-# Back up etcd from the current sole control-plane node
+## 1. Pre-flight
+
+```sh
+kubectl get nodes
+kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s        # HEALTH_OK, PGs active+clean
+
+# etcd snapshot from the current sole member
 ssh ceres.lan 'sudo ETCDCTL_API=3 etcdctl \
   --endpoints=https://127.0.0.1:2379 \
   --cacert=/etc/kubernetes/pki/etcd/ca.crt \
   --cert=/etc/kubernetes/pki/etcd/server.crt \
   --key=/etc/kubernetes/pki/etcd/server.key \
-  snapshot save /root/etcd-$(date +%F).db'
+  snapshot save /root/etcd-$(date +%F).db && sudo ls -l /root/etcd-*.db'
 
-# Refresh the Ansible fact cache (required before any --limit run)
-cd ~/git/k8s-clusters/kubespray
-ansible-playbook -i ../inventory playbooks/facts.yml -b --private-key ~/.ssh/id_ed25519
-```
-
-Optionally set `noout` so Ceph doesn't rebalance while a node is briefly reset:
-
-```sh
+# stop Ceph rebalancing while a node is briefly out
 kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph osd set noout
 ```
 
-## Procedure — repeat for deimos.lan, then pallas.lan
+## 2. Pass A — `deimos.lan`
 
-Work on **one** node at a time. `<node>` = `deimos.lan` first, then `pallas.lan`.
+### 2a. Add it to the groups
 
-### 1. Drain and reset the node as a plain worker
-
-Because it is already a `kube_node`, remove it before re-adding it as
-control-plane + etcd (Kubespray's supported path for adding an existing worker to
-`etcd`). This wipes k8s from the node, so its mon + OSD go down for the duration.
+In `inventory/hosts.yaml`, uncomment `deimos.lan` under **both**
+`kube_control_plane` and `etcd`. Leave `pallas.lan` commented.
 
 ```sh
-cd ~/git/k8s-clusters/kubespray
-ansible-playbook -i ../inventory remove-node.yml \
-  -b --private-key ~/.ssh/id_ed25519 -e node=<node>
+# fact cache for all hosts (required before a --limit run)
+./deploy.sh inventory playbooks/facts.yml
 ```
 
-Wait for Ceph to settle back to `HEALTH_OK` / all PGs `active+clean` (2 of 3 OSDs
-must stay up the whole time — that's why this is one node at a time):
+### 2b. Reset the node
 
 ```sh
-kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s
+./deploy.sh inventory remove-node.yml -e node=deimos.lan -e skip_confirmation=yes
 ```
 
-### 2. Re-add it as control-plane + etcd + worker
-
-The inventory on this branch already lists `<node>` in all three groups.
+If the drain stalls on a Rook OSD PodDisruptionBudget, the cluster isn't fully
+clean — wait for `ceph -s` to show all PGs `active+clean` and retry. Then:
 
 ```sh
-ansible-playbook -i ../inventory cluster.yml \
-  -b --private-key ~/.ssh/id_ed25519 \
-  --limit=etcd,kube_control_plane \
+kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s        # HEALTH_OK again
+```
+
+### 2c. Rejoin as control plane + etcd + worker
+
+```sh
+./deploy.sh inventory cluster.yml \
+  --limit=deimos.lan,ceres.lan \
   -e ignore_assert_errors=yes -e etcd_retries=10
 ```
 
-`ignore_assert_errors=yes` is needed while the etcd count is even.
+Scope is only the new node + `ceres.lan` (the reference member) — `pallas.lan` is
+still just a worker and must not be in scope. `ignore_assert_errors=yes` is for
+the even etcd count.
 
-### 3. Propagate etcd config to all control-plane nodes
-
-```sh
-ansible-playbook -i ../inventory upgrade-cluster.yml \
-  -b --private-key ~/.ssh/id_ed25519 \
-  --limit=etcd,kube_control_plane \
-  -e ignore_assert_errors=yes
-```
-
-### 4. Verify etcd membership and API server config
+### 2d. Verify before continuing
 
 ```sh
-# New member should be present and started
-ssh ceres.lan 'sudo ETCDCTL_API=3 etcdctl \
+kubectl -n kube-system exec etcd-ceres.lan -- etcdctl \
   --endpoints=https://127.0.0.1:2379 \
   --cacert=/etc/kubernetes/pki/etcd/ca.crt \
   --cert=/etc/kubernetes/pki/etcd/server.crt \
   --key=/etc/kubernetes/pki/etcd/server.key \
-  member list -w table'
+  endpoint health --cluster        # both endpoints healthy
 
-# --etcd-servers must list every etcd node on every control-plane host
-for h in ceres.lan deimos.lan pallas.lan; do
-  ssh $h 'sudo grep -- --etcd-servers /etc/kubernetes/manifests/kube-apiserver.yaml'
+for h in ceres.lan deimos.lan; do
+  echo "== $h =="; ssh $h 'sudo grep -- --etcd-servers /etc/kubernetes/manifests/kube-apiserver.yaml'
 done
+
+kubectl get nodes                                                   # deimos.lan Ready, control-plane
+kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s         # HEALTH_OK
 ```
 
-If a control-plane node's `--etcd-servers` is missing the new endpoint, add it by
-hand and let the static pod restart.
+Do not start Pass B until `deimos.lan` is fully back and Ceph is healthy.
 
-### 5. Restart nginx-proxy on every node
+## 3. Pass B — `pallas.lan`
+
+1. Uncomment `pallas.lan` under `kube_control_plane` and `etcd` in
+   `inventory/hosts.yaml`.
+2. `./deploy.sh inventory playbooks/facts.yml`
+3. `./deploy.sh inventory remove-node.yml -e node=pallas.lan -e skip_confirmation=yes`
+4. Wait for `ceph -s` → `HEALTH_OK`.
+5. Rejoin, now with `deimos.lan` also in scope (it's a real control-plane node
+   now, so its apiserver `--etcd-servers` needs `pallas` added):
+
+   ```sh
+   ./deploy.sh inventory cluster.yml \
+     --limit=pallas.lan,ceres.lan,deimos.lan \
+     -e etcd_retries=10
+   ```
+
+   No `ignore_assert_errors` — the count returns to odd (3).
+6. Verify as in 2d, checking all three hosts.
+
+## 4. Finish
 
 ```sh
-kubectl -n kube-system delete pod -l k8s-app=kube-nginx   # label may be 'nginx-proxy'; check
+# one reconcile pass across the whole control plane + etcd
+./deploy.sh inventory upgrade-cluster.yml --limit=etcd,kube_control_plane
+
+# reload the api LB on every node so it sees all three apiservers
+kubectl -n kube-system delete pod -l k8s-app=kube-nginx
+
+kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph osd unset noout
+
+kubectl get nodes -o wide                                           # 3x control-plane
+kubectl -n kube-system get pods -l component=etcd -o wide           # 3 etcd pods
+kubectl -n kube-system exec etcd-ceres.lan -- etcdctl \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  member list -w table                                              # 3 started members
 ```
 
-Then confirm the new node is `Ready` and shows `control-plane` in `ROLES`, its mon
-rejoined quorum, and its OSD is back `up`:
+Commit `inventory/hosts.yaml` with all three uncommented once it's done.
 
-```sh
-kubectl get nodes
-kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s
-```
-
-Only then move on to the second node.
-
-## Post
-
-```sh
-kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph osd unset noout   # if set
-
-# Final state: 3x control-plane, 3 etcd members, HEALTH_OK
-kubectl get nodes -o wide
-```
-
-The `auto_renew_certificates_systemd_calendar` stagger in `group_vars/all.yml`
-already keys off `groups['kube_control_plane'].index(...)`, so it adapts to 3
-nodes with no change.
+External access (`cluster-access.yaml`) still points at `ceres.lan` and keeps
+working; regenerate with `./get-cluster-config.sh` only to retarget it.
 
 ## Rollback
 
-If etcd is unhealthy after step 2 for a node, `remove-node.yml -e node=<node>`
-that node again, restore quorum on the remaining members, and if needed restore
-`ceres.lan` from the snapshot with `etcdctl snapshot restore` +
-`recover-control-plane.yml`.
+A node's join failed or its etcd member is unhealthy:
+
+```sh
+./deploy.sh inventory remove-node.yml -e node=<node> -e skip_confirmation=yes
+```
+
+Re-comment it in `inventory/hosts.yaml`. The remaining members keep quorum. If
+`ceres.lan` itself was damaged, restore `/root/etcd-<date>.db` with
+`etcdctl snapshot restore` and `kubespray/recover-control-plane.yml`.

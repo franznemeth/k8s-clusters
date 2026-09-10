@@ -13,12 +13,12 @@ all:
   children:
     kube_control_plane:
       hosts:
-        # ceres.lan must stay first: Kubespray does not support changing the
-        # first kube_control_plane entry. deimos/pallas appended for HA control
-        # plane -- see docs/add-control-plane-node.md before running cluster.yml.
+        # HA plan: ceres + deimos + pallas. deimos/pallas are added ONE AT A TIME
+        # by docs/add-control-plane-node.md -- uncomment a node only on its pass.
+        # ceres.lan must stay first (Kubespray cannot change the first entry).
         ceres.lan:
-        deimos.lan:
-        pallas.lan:
+        #deimos.lan:
+        #pallas.lan:
     kube_node:
       hosts:
         ceres.lan:
@@ -27,12 +27,12 @@ all:
         nas.lan:
     etcd:
       hosts:
-        # 3 members for quorum. deimos/pallas are already kube_node members, so
-        # each must be drained via remove-node.yml and re-added -- follow
-        # docs/add-control-plane-node.md; do NOT just run cluster.yml.
+        # 3 members for quorum, added one at a time -- see
+        # docs/add-control-plane-node.md. Uncomment in lockstep with
+        # kube_control_plane above.
         ceres.lan:
-        deimos.lan:
-        pallas.lan:
+        #deimos.lan:
+        #pallas.lan:
     k8s_cluster:
       children:
         kube_control_plane:
