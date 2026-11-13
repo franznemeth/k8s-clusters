@@ -14,13 +14,16 @@ etcd_deployment_type: kubeadm
 
 etcd_quota_backend_bytes: "4294967296"
 
-# Cilium helm installation
-kube_network_plugin: custom_cni
+# Cilium is managed by ArgoCD (k8s-deployments: deployments/<cluster>/cilium).
+# `cni` = Kubespray installs only the CNI plugin binaries and never touches the
+# Cilium objects. Do NOT go back to `custom_cni` + manifests/cilium_core.yaml on a
+# running cluster: Kubespray re-applies that manifest on every run, which rolls
+# the Cilium DaemonSet back to its bootstrap version (v1.15.6) until ArgoCD
+# reverts it. Two cluster-wide Cilium rollouts broke OSD heartbeats and took
+# Ceph down on 2026-11-13. manifests/cilium_core.yaml is for bootstrapping a new cluster only.
+kube_network_plugin: cni
 # This must be set to root otherwise cilium agent init fails with permission denied while copying to /opt/cni/bin
 cni_bin_owner: root
-## OPTION 1 EXAMPLE - Cilium static manifests in Kubespray tree
-custom_cni_manifests:
-  - "{{ playbook_dir }}/../../manifests/cilium_core.yaml"
 
 # Remove kube-proxy to be replaced by cilium
 kube_proxy_remove: true
