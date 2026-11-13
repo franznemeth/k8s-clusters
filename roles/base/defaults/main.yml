@@ -2,11 +2,16 @@
 # defaults file for base
 raspberry_pi: false
 
-# Opt-in switches for disruptive tasks. Left off so `./deploy.sh <inv> site.yml`
+# Opt-in switch for a disruptive task. Left off so `./deploy.sh <inv> site.yml`
 # is safe to run against the live cluster. Enable deliberately, per node, in a
 # maintenance window.
 base_full_upgrade: false      # `dnf upgrade "*"` + reboot-if-needed
-base_manage_firewalld: false  # stop & mask firewalld
+
+# Stop & mask firewalld. On by default: every cluster node runs without it
+# (Cilium owns packet filtering), and a fresh EL install leaves it active,
+# rejecting kubelet (10250) and Cilium VXLAN/health traffic. A no-op on nodes
+# where it is already masked.
+base_manage_firewalld: true
 
 # LVM global_filter applied by tasks/lvm-filter.yml. First match wins; the
 # trailing accept keeps every non-Ceph device visible.

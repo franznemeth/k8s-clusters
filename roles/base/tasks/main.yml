@@ -110,8 +110,7 @@
     path: /etc/profile
     line: /usr/local/bin/dynmotd
 
-# Kubespray manages the firewall itself; masking it here is opt-in so a
-# host-config run does not silently change the firewall state of a live node.
+# Cluster nodes run without firewalld; see base_manage_firewalld in defaults.
 - name: stop & mask firewalld
   when: base_manage_firewalld | bool
   systemd:
