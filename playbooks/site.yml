@@ -25,6 +25,12 @@
   roles:
     - nas
 
+- name: NVIDIA GPU nodes (driver, container toolkit)
+  hosts: gpu
+  become: true
+  roles:
+    - gpu
+
 # include_role (not a static `roles:` entry) so the vault-encrypted
 # roles/core/vars/main.yml is only read when a host actually matches -- a lan
 # `site.yml` run never needs the vault password.

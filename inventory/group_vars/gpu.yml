@@ -1,0 +1,16 @@
+---
+# GPU nodes (Kubespray side). Host driver + toolkit come from roles/gpu
+# (playbooks/site.yml). Same shape as Kubespray's containerd_runc_runtime, only
+# the binary differs. The template adds the quotes around string values.
+containerd_additional_runtimes:
+  - name: nvidia
+    type: "io.containerd.runc.v2"
+    base_runtime_spec: cri-base.json
+    options:
+      Root: ""
+      SystemdCgroup: "{{ containerd_use_systemd_cgroup | ternary('true', 'false') }}"
+      BinaryName: /usr/bin/nvidia-container-runtime
+
+# Default on GPU nodes only, so the device plugin and GPU pods work without a
+# RuntimeClass. nvidia-container-runtime passes non-GPU containers through to runc.
+containerd_default_runtime: nvidia

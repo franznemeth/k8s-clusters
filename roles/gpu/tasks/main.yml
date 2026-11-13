@@ -1,0 +1,150 @@
+---
+# NVIDIA driver (headless/compute, proprietary kmod) + container toolkit for
+# Kubernetes GPU nodes on EL10.
+#
+# containerd is NOT configured here: Kubespray owns /etc/containerd/config.toml
+# and would overwrite `nvidia-ctk runtime configure`. The nvidia runtime is
+# declared in inventory/group_vars/gpu.yml and rendered by Kubespray.
+
+- name: gpu | only EL10 is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == 'RedHat'
+      - ansible_distribution_major_version == '10'
+    fail_msg: "gpu role targets EL10 (no dnf module streams; branch pinned via versionlock)."
+
+# dkms comes from EPEL, which the base role installs.
+- name: gpu | install kernel headers, dkms, mokutil
+  ansible.builtin.dnf:
+    name:
+      - "kernel-devel-{{ ansible_kernel }}"
+      - kernel-devel
+      - kernel-headers
+      - dkms
+      - mokutil
+      - python3-dnf-plugin-versionlock
+    state: present
+
+# --- Secure Boot --------------------------------------------------------------
+# DKMS signs every module it builds with /var/lib/dkms/mok.key. Create the key
+# BEFORE the driver install so the nvidia module is signed on its first build.
+# Generated regardless of Secure Boot state, so enabling it later only needs
+# the enrollment step.
+- name: gpu | create DKMS module signing key
+  ansible.builtin.command:
+    cmd: dkms generate_mok
+    creates: /var/lib/dkms/mok.pub
+
+- name: gpu | check Secure Boot state
+  ansible.builtin.command: mokutil --sb-state
+  register: _gpu_sb
+  changed_when: false
+  failed_when: false
+
+- name: gpu | check DKMS key enrollment
+  ansible.builtin.command: mokutil --test-key /var/lib/dkms/mok.pub
+  register: _gpu_mok
+  changed_when: false
+  failed_when: false
+
+- name: gpu | evaluate Secure Boot / MOK state
+  ansible.builtin.set_fact:
+    _gpu_sb_enabled: "{{ 'SecureBoot enabled' in (_gpu_sb.stdout ~ _gpu_sb.stderr) }}"
+    _gpu_mok_enrolled: "{{ 'already enrolled' in (_gpu_mok.stdout ~ _gpu_mok.stderr) }}"
+    _gpu_mok_pending: "{{ 'enrollment request' in (_gpu_mok.stdout ~ _gpu_mok.stderr) }}"
+
+# The password is only a one-time confirmation code typed into MokManager at
+# the console on the next boot; it is not stored on the host.
+- name: gpu | queue DKMS key for enrollment
+  when: _gpu_sb_enabled and not _gpu_mok_enrolled and not _gpu_mok_pending
+  block:
+    - name: gpu | require a MOK enrollment password
+      ansible.builtin.assert:
+        that: gpu_mok_password | default('') | length > 0
+        fail_msg: >-
+          Secure Boot is on and the DKMS key is not enrolled. Rerun with
+          -e gpu_mok_password=<one-time code> to queue the enrollment.
+
+    - name: gpu | mokutil --import /var/lib/dkms/mok.pub
+      ansible.builtin.shell:
+        cmd: mokutil --import /var/lib/dkms/mok.pub --hash-file <(mokutil --generate-hash="$MOK_PW")
+        executable: /bin/bash
+      environment:
+        MOK_PW: "{{ gpu_mok_password }}"
+      no_log: true
+
+    - name: gpu | mark enrollment pending
+      ansible.builtin.set_fact:
+        _gpu_mok_pending: true
+
+- name: gpu | add NVIDIA CUDA repo
+  ansible.builtin.get_url:
+    url: "{{ gpu_cuda_repo_url }}"
+    dest: /etc/yum.repos.d/cuda.repo
+    mode: "0644"
+
+- name: gpu | add NVIDIA container toolkit repo
+  ansible.builtin.get_url:
+    url: "{{ gpu_toolkit_repo_url }}"
+    dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+    mode: "0644"
+
+# Compute-only driver (no X11 bits). kmod-nvidia-latest-dkms = proprietary
+# module; the open one (kmod-nvidia-open-dkms) does not support Pascal.
+- name: gpu | install NVIDIA driver {{ gpu_driver_version }}
+  ansible.builtin.dnf:
+    name:
+      - "nvidia-driver-cuda-{{ gpu_driver_version }}"
+      - "nvidia-driver-cuda-libs-{{ gpu_driver_version }}"
+      - "nvidia-kmod-common-{{ gpu_driver_version }}"
+      - "kmod-nvidia-latest-dkms-{{ gpu_driver_version }}"
+    state: present
+
+# EL10 has no module streams, so without this `dnf upgrade` would jump to
+# 590+ and the P2000 would stop working.
+- name: gpu | versionlock NVIDIA driver at {{ gpu_driver_version }}
+  ansible.builtin.command:
+    cmd: >-
+      dnf versionlock add
+      nvidia-driver-cuda-{{ gpu_driver_version }}
+      nvidia-driver-cuda-libs-{{ gpu_driver_version }}
+      nvidia-kmod-common-{{ gpu_driver_version }}
+      kmod-nvidia-latest-dkms-{{ gpu_driver_version }}
+  register: _gpu_lock
+  changed_when: "'Adding versionlock' in _gpu_lock.stdout"
+
+- name: gpu | install NVIDIA container toolkit
+  ansible.builtin.dnf:
+    name: nvidia-container-toolkit
+    state: present
+
+- name: gpu | check driver is loaded
+  ansible.builtin.command: nvidia-smi -L
+  register: _gpu_smi
+  changed_when: false
+  failed_when: false
+
+# A pending MOK enrollment stops the boot in MokManager until someone confirms
+# it at the console, so never reboot unattended in that state.
+- name: gpu | MOK enrollment needs the console
+  ansible.builtin.debug:
+    msg: >-
+      DKMS key queued for enrollment. Reboot {{ inventory_hostname }} with
+      console/IPMI access: MokManager -> Enroll MOK -> Continue -> Yes ->
+      enter the gpu_mok_password code -> Reboot. Then rerun this role to verify.
+  when: _gpu_smi.rc != 0 and _gpu_mok_pending
+
+- name: gpu | reboot to load the nvidia module
+  ansible.builtin.reboot:
+    post_reboot_delay: 30
+  when: _gpu_smi.rc != 0 and not _gpu_mok_pending and gpu_reboot | bool
+
+- name: gpu | verify driver after reboot
+  ansible.builtin.command: nvidia-smi -L
+  changed_when: false
+  when: _gpu_smi.rc != 0 and not _gpu_mok_pending and gpu_reboot | bool
+
+- name: gpu | reboot pending
+  ansible.builtin.debug:
+    msg: "nvidia driver installed but not loaded -- rerun with -e gpu_reboot=true --limit {{ inventory_hostname }}"
+  when: _gpu_smi.rc != 0 and not _gpu_mok_pending and not gpu_reboot | bool

@@ -1,0 +1,18 @@
+---
+# NVIDIA driver version, versionlocked. Must stay on the 580 branch: it is the
+# last one that supports Pascal (Quadro P2000); 590+ dropped it. Bump within
+# 580.x only -- available versions:
+#   dnf --showduplicates list kmod-nvidia-latest-dkms
+gpu_driver_version: "580.196.07"
+
+# The first install needs a reboot to swap nouveau for nvidia. Opt-in, like
+# base_full_upgrade: `-e gpu_reboot=true --limit <node>`.
+gpu_reboot: false
+
+# Secure Boot: one-time code to confirm the DKMS key enrollment in MokManager
+# at the console. Only needed (and then required) while Secure Boot is on and
+# the key is not yet enrolled: `-e gpu_mok_password=<code>`.
+# gpu_mok_password:
+
+gpu_cuda_repo_url: "https://developer.download.nvidia.com/compute/cuda/repos/rhel{{ ansible_distribution_major_version }}/x86_64/cuda-rhel{{ ansible_distribution_major_version }}.repo"
+gpu_toolkit_repo_url: "https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo"

@@ -32,16 +32,17 @@
   when:
     grep_cpuinfo_raspberrypi.rc == 0 or grep_device_tree_model_raspberrypi.rc == 0
 
-- name: Install EPEL 9 GPG key
+# EPEL matching the EL major (9 or 10). Fedora has no EPEL.
+- name: Install EPEL GPG key
   rpm_key:
     state: present
-    key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9
-  when: ansible_os_family in ['RedHat']
-- name: Install EPEL 9
+    key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}"
+  when: ansible_os_family == 'RedHat' and ansible_distribution != 'Fedora'
+- name: Install EPEL
   dnf:
-    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+    name: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm"
     state: present
-  when:  ansible_os_family in ['RedHat']
+  when: ansible_os_family == 'RedHat' and ansible_distribution != 'Fedora'
 
 - name: Install common packages
   package:

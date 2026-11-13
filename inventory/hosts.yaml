@@ -10,6 +10,8 @@ all:
       ansible_host: 10.11.12.156
     nas.lan:
       ansible_host: 10.11.12.16
+    eros.lan:
+      ansible_host: 10.11.12.191
   children:
     kube_control_plane:
       hosts:
@@ -25,6 +27,7 @@ all:
         deimos.lan:
         pallas.lan:
         nas.lan:
+        eros.lan:
     etcd:
       hosts:
         # 3 members for quorum, added one at a time -- see
@@ -41,3 +44,8 @@ all:
     nas:
       hosts:
         nas.lan:
+    # NVIDIA GPU nodes: roles/gpu (site.yml) + nvidia containerd runtime
+    # (group_vars/gpu.yml, Kubespray).
+    gpu:
+      hosts:
+        eros.lan:
