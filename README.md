@@ -15,7 +15,7 @@ Ansible for the `lan` and `core` home clusters. Two layers, one entrypoint
 
 | Path                 | What                                                                    |
 | -------------------- | -------------------------------------------------------------------- |
-| `kubespray/`         | Kubespray submodule (currently v2.31.0)                             |
+| `kubespray/`         | Kubespray submodule (currently v2.32.0)                             |
 | `inventory/`         | `lan` cluster: `hosts.yaml` + `group_vars/all.yml`                 |
 | `inventory-core/`    | `core` cluster inventory                                           |
 | `roles/`             | `base`, `nas`, `core`, `gpu` host-config roles (Galaxy roles land here too, gitignored) |

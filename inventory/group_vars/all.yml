@@ -44,7 +44,7 @@ unsafe_show_logs: true
 # Metrics Server deployment
 metrics_server_enabled: true
 
-kube_version: 1.35.4
+kube_version: 1.36.4
 
 # CoreDNS shipped by kubespray (1.12.1) is newer than the migration-check map
 # compiled into the kubeadm 1.33 binary, so `kubeadm upgrade apply` preflight
