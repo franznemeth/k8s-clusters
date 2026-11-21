@@ -1,0 +1,14 @@
+---
+# Cap the CPU clock (base_cpu_max_freq_khz). tmpfiles.d re-applies it at every
+# boot; the command applies it right away when the file changes.
+- name: Cap CPU max frequency at boot
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/cpufreq-max.conf
+    content: |
+      w /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq - - - - {{ base_cpu_max_freq_khz }}
+    mode: "0644"
+  register: cpufreq_conf
+
+- name: Apply CPU max frequency now
+  ansible.builtin.command: systemd-tmpfiles --create /etc/tmpfiles.d/cpufreq-max.conf
+  when: cpufreq_conf.changed

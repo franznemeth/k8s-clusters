@@ -1,0 +1,5 @@
+---
+# i9-8950HK on the laptop heatsink. Measured under its normal load (2026-11-21):
+# uncapped 4.25 GHz = 38 W / 91-97 C, 3.0 GHz = 14.5 W / ~52 C at the same
+# throughput. Energy profile (EPP) and the turbo switch made no difference.
+base_cpu_max_freq_khz: 3000000
