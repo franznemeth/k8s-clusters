@@ -124,3 +124,11 @@
     name: firewalld
     state: stopped
     masked: yes
+
+# Nodes must never suspend: eros.lan is a laptop and logind suspended it on
+# lid close, taking the node down. Masked targets make every suspend request fail.
+- name: mask sleep targets
+  systemd:
+    name: "{{ item }}"
+    masked: yes
+  loop: [sleep.target, suspend.target, hibernate.target, hybrid-sleep.target]
